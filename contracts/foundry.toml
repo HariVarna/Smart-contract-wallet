@@ -1,0 +1,29 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib", "node_modules"]
+test = "test"
+script = "script"
+solc_version = "0.8.28"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+verbosity = 2
+ffi = false
+ast = true
+
+# Strict compiler warnings
+extra_output = ["abi", "evm.bytecode", "evm.deployedBytecode", "metadata"]
+
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = true
+int_types = "long"
+multiline_func_header = "attributes_first"
+quote_style = "double"
+number_underscore = "thousands"
+
+[rpc_endpoints]
+local = "http://127.0.0.1:8545"
+sepolia = "${SEPOLIA_RPC_URL}"

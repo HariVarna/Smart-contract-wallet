@@ -1,0 +1,14 @@
+{
+  "name": "@scw/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Centralized smart contract ABIs, addresses, and typed contract descriptors",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}

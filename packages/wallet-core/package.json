@@ -1,0 +1,17 @@
+{
+  "name": "@scw/wallet-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Framework-agnostic wallet client logic and transaction orchestrators",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "viem": "^2.23.10"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}

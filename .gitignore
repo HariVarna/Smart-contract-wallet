@@ -1,0 +1,49 @@
+# Node & Package Managers
+node_modules/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Next.js Build Output
+apps/web/.next/
+apps/web/out/
+.next/
+out/
+
+# Foundry / Solidity Compilation
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+out/
+cache/
+broadcast/
+
+# TypeScript Build Output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment & Secrets (NEVER COMMIT SENSITIVE FILES)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.pem
+*.key
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# IDE & System Files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

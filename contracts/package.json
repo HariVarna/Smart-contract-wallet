@@ -1,0 +1,19 @@
+{
+  "name": "@scw/contracts-sol",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Foundry smart contract project for Smart Contract Wallet",
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "clean": "forge clean",
+    "fmt": "forge fmt"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.2.0"
+  },
+  "devDependencies": {
+    "forge-std": "^1.1.2",
+    "solhint": "^5.0.5"
+  }
+}

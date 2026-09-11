@@ -1,0 +1,23 @@
+{
+  "name": "smart-contract-wallet-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Production-oriented, non-custodial Smart Contract Wallet monorepo",
+  "scripts": {
+    "dev:web": "cd apps/web && npm run dev",
+    "build:web": "cd apps/web && npm run build",
+    "contracts:build": "cd contracts && forge build",
+    "contracts:test": "cd contracts && forge test",
+    "contracts:clean": "cd contracts && forge clean",
+    "contracts:format": "cd contracts && forge fmt",
+    "anvil": "powershell -ExecutionPolicy Bypass -File ./scripts/anvil.ps1",
+    "typecheck": "cd apps/web && npx tsc --noEmit",
+    "format": "npx prettier --write \"**/*.{ts,tsx,js,jsx,json,md,sol}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3",
+    "prettier-plugin-solidity": "^1.4.2",
+    "typescript": "^5.8.2"
+  },
+  "packageManager": "pnpm@12.3.4"
+}
