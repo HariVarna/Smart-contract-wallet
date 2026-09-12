@@ -9,13 +9,15 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {GuardianRecovery} from "../recovery/GuardianRecovery.sol";
 import {IAccount} from "@account-abstraction/contracts/interfaces/IAccount.sol";
 import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 
 /**
  * @title SmartWallet
  * @notice Production-oriented, non-custodial Smart Contract Wallet account.
  * @dev Enforces direct owner authorization and EIP-712 signed execution with replay protection.
  */
-contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard, GuardianRecovery, IAccount {
+contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard, GuardianRecovery, IAccount, IERC721Receiver, IERC1155Receiver {
     /// @dev EIP-712 typehash for transaction execution signatures.
     bytes32 public constant EXECUTE_TYPEHASH =
         keccak256("ExecuteTransaction(address target,uint256 value,bytes data,uint256 space,uint256 nonce,uint256 deadline)");
@@ -368,5 +370,47 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard, Gua
      */
     fallback() external payable {
         emit EthReceived(msg.sender, msg.value);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                               NFT RECEIVERS                                */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Allows the smart wallet to safely receive ERC-721 tokens.
+     */
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes calldata
+    ) external pure override returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+
+    /**
+     * @notice Allows the smart wallet to safely receive ERC-1155 tokens.
+     */
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes calldata
+    ) external pure override returns (bytes4) {
+        return IERC1155Receiver.onERC1155Received.selector;
+    }
+
+    /**
+     * @notice Allows the smart wallet to safely receive ERC-1155 token batches.
+     */
+    function onERC1155BatchReceived(
+        address,
+        address,
+        uint256[] calldata,
+        uint256[] calldata,
+        bytes calldata
+    ) external pure override returns (bytes4) {
+        return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 }
