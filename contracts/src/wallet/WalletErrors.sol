@@ -37,4 +37,16 @@ interface IWalletErrors {
     /// @param currentBalance The available ETH balance in the wallet.
     /// @param requiredAmount The amount of ETH required for the execution.
     error InsufficientBalance(uint256 currentBalance, uint256 requiredAmount);
+
+    /// @notice Thrown when attempting an execution while the wallet is locked.
+    error WalletLocked();
+
+    /// @notice Thrown when attempting to interact with a non-allowlisted contract.
+    /// @param target The target contract address.
+    error TargetNotAllowlisted(address target);
+
+    /// @notice Thrown when an execution exceeds the daily native ETH spending limit.
+    /// @param requested The amount of ETH requested for transfer.
+    /// @param remaining The remaining daily limit available.
+    error ExceedsDailyLimit(uint256 requested, uint256 remaining);
 }

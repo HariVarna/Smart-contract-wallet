@@ -15,10 +15,22 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard {
     /// @dev EIP-712 typehash for transaction execution signatures.
     bytes32 public constant EXECUTE_TYPEHASH =
-        keccak256("ExecuteTransaction(address target,uint256 value,bytes data,uint256 nonce,uint256 deadline)");
+        keccak256("ExecuteTransaction(address target,uint256 value,bytes data,uint256 space,uint256 nonce,uint256 deadline)");
+
+    /// @dev EIP-1271 magic value
+    bytes4 internal constant MAGICVALUE = 0x1626ba7e;
 
     /// @dev Authorized owner/signing authority of the smart wallet.
     address private immutable _owner;
+
+    // --- Security Configuration ---
+    bool public isLocked;
+    bool public allowlistEnabled;
+    mapping(address => bool) public isAllowedContract;
+    
+    uint256 public dailyEthLimit;
+    uint256 public ethSpentToday;
+    uint256 public lastDayReset;
 
     /**
      * @notice Initializes the smart contract wallet with an authorized owner.
@@ -40,11 +52,47 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard {
     }
 
     /**
+     * @dev Restricts invocation when the wallet is locked.
+     */
+    modifier whenNotLocked() {
+        if (isLocked) {
+            revert WalletLocked();
+        }
+        _;
+    }
+
+    /**
      * @dev Internal helper validating caller against authorized owner.
      */
     function _checkOwner() internal view {
         if (msg.sender != _owner) {
             revert UnauthorizedCaller(msg.sender);
+        }
+    }
+
+    /**
+     * @dev Centralized security policy validation.
+     */
+    function _validatePolicy(address target, uint256 value) internal {
+        if (isLocked) {
+            revert WalletLocked();
+        }
+        if (allowlistEnabled && !isAllowedContract[target]) {
+            revert TargetNotAllowlisted(target);
+        }
+        
+        if (value > 0) {
+            if (block.timestamp >= lastDayReset + 1 days) {
+                ethSpentToday = 0;
+                lastDayReset = block.timestamp;
+            }
+            if (dailyEthLimit > 0) {
+                uint256 remaining = dailyEthLimit >= ethSpentToday ? dailyEthLimit - ethSpentToday : 0;
+                if (value > remaining) {
+                    revert ExceedsDailyLimit(value, remaining);
+                }
+                ethSpentToday += value;
+            }
         }
     }
 
@@ -58,8 +106,8 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard {
     /**
      * @inheritdoc ISmartWallet
      */
-    function getNonce() public view override(ISmartWallet, NonceManager) returns (uint256) {
-        return super.getNonce();
+    function getNonce(uint256 space) public view override(ISmartWallet, NonceManager) returns (uint256) {
+        return super.getNonce(space);
     }
 
     /**
@@ -81,7 +129,9 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard {
             revert ZeroAddress();
         }
 
-        uint256 currentNonce = _useNonce();
+        uint256 currentNonce = _useNonce(0); // Default space for direct owner execution
+        
+        _validatePolicy(target, value);
 
         if (address(this).balance < value) {
             revert InsufficientBalance(address(this).balance, value);
@@ -103,6 +153,7 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard {
         address target,
         uint256 value,
         bytes calldata data,
+        uint256 space,
         uint256 nonce,
         uint256 deadline,
         bytes calldata signature
@@ -115,7 +166,9 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard {
             revert ExpiredSignature(deadline, block.timestamp);
         }
 
-        _verifyAndUseNonce(nonce);
+        _verifyAndUseNonce(space, nonce);
+        
+        _validatePolicy(target, value);
 
         bytes32 structHash = keccak256(
             abi.encode(
@@ -123,6 +176,7 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard {
                 target,
                 value,
                 keccak256(data),
+                space,
                 nonce,
                 deadline
             )
@@ -146,6 +200,53 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard {
         }
 
         emit TransactionExecuted(target, value, data, nonce, returnData);
+    }
+
+    /**
+     * @inheritdoc ISmartWallet
+     */
+    function isValidSignature(bytes32 hash, bytes memory signature) external view override returns (bytes4 magicValue) {
+        (address recoveredSigner, ECDSA.RecoverError err, ) = ECDSA.tryRecover(hash, signature);
+        if (err == ECDSA.RecoverError.NoError && recoveredSigner == _owner && recoveredSigner != address(0)) {
+            return MAGICVALUE;
+        }
+        return 0xffffffff;
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                             SECURITY CONTROLS                              */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @inheritdoc ISmartWallet
+     */
+    function setEmergencyLock(bool locked) external override onlyOwner {
+        isLocked = locked;
+        emit WalletLockUpdated(locked);
+    }
+
+    /**
+     * @inheritdoc ISmartWallet
+     */
+    function setAllowlistEnabled(bool enabled) external override onlyOwner {
+        allowlistEnabled = enabled;
+        emit AllowlistStateUpdated(enabled);
+    }
+
+    /**
+     * @inheritdoc ISmartWallet
+     */
+    function setContractAllowlist(address target, bool isAllowed) external override onlyOwner {
+        isAllowedContract[target] = isAllowed;
+        emit ContractAllowlisted(target, isAllowed);
+    }
+
+    /**
+     * @inheritdoc ISmartWallet
+     */
+    function setDailyEthLimit(uint256 limit) external override onlyOwner {
+        dailyEthLimit = limit;
+        emit DailyLimitSet(limit);
     }
 
     /**

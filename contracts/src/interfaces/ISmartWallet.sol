@@ -32,14 +32,40 @@ interface ISmartWallet is IWalletErrors {
     event EthReceived(address indexed sender, uint256 amount);
 
     /**
+     * @notice Emitted when the wallet emergency lock state changes.
+     * @param isLocked The new lock state.
+     */
+    event WalletLockUpdated(bool isLocked);
+
+    /**
+     * @notice Emitted when the allowlist is enabled or disabled.
+     * @param isEnabled The new allowlist state.
+     */
+    event AllowlistStateUpdated(bool isEnabled);
+
+    /**
+     * @notice Emitted when a contract's allowlist status changes.
+     * @param target The target contract address.
+     * @param isAllowed Whether the contract is allowed.
+     */
+    event ContractAllowlisted(address indexed target, bool isAllowed);
+
+    /**
+     * @notice Emitted when the daily native ETH spending limit is set.
+     * @param limit The new daily limit in wei.
+     */
+    event DailyLimitSet(uint256 limit);
+
+    /**
      * @notice Returns the primary owner/signing authority of the wallet.
      */
     function owner() external view returns (address);
 
     /**
-     * @notice Returns the current sequential transaction nonce.
+     * @notice Returns the current sequential transaction nonce for a given space.
+     * @param space The nonce space (for concurrent execution).
      */
-    function getNonce() external view returns (uint256);
+    function getNonce(uint256 space) external view returns (uint256);
 
     /**
      * @notice Returns the native ETH balance held by the wallet.
@@ -64,6 +90,7 @@ interface ISmartWallet is IWalletErrors {
      * @param target Destination contract or recipient address.
      * @param value Amount of native ETH in wei to transfer.
      * @param data Calldata payload to execute on the destination.
+     * @param space Nonce space for concurrent execution.
      * @param nonce Nonce to prevent replay attacks.
      * @param deadline Unix timestamp past which the signature is invalid.
      * @param signature Cryptographic ECDSA signature signed by the wallet owner.
@@ -73,8 +100,46 @@ interface ISmartWallet is IWalletErrors {
         address target,
         uint256 value,
         bytes calldata data,
+        uint256 space,
         uint256 nonce,
         uint256 deadline,
         bytes calldata signature
     ) external payable returns (bytes memory returnData);
+
+    /**
+     * @notice EIP-1271 standard signature validation interface.
+     * @param hash The hash of the data to be signed.
+     * @param signature The signature byte array associated with hash.
+     * @return magicValue `0x1626ba7e` if valid, otherwise error or other bytes.
+     */
+    function isValidSignature(bytes32 hash, bytes memory signature) external view returns (bytes4 magicValue);
+
+    /* -------------------------------------------------------------------------- */
+    /*                             SECURITY CONTROLS                              */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Updates the emergency lock state.
+     * @param locked Boolean indicating whether the wallet should be locked.
+     */
+    function setEmergencyLock(bool locked) external;
+
+    /**
+     * @notice Toggles the strict contract allowlist policy.
+     * @param enabled Boolean indicating whether allowlist checking is active.
+     */
+    function setAllowlistEnabled(bool enabled) external;
+
+    /**
+     * @notice Updates the allowlist status for a specific target contract.
+     * @param target The target contract address.
+     * @param isAllowed Boolean indicating if the contract is allowed.
+     */
+    function setContractAllowlist(address target, bool isAllowed) external;
+
+    /**
+     * @notice Sets a daily limit for native ETH transfers.
+     * @param limit The daily limit in wei.
+     */
+    function setDailyEthLimit(uint256 limit) external;
 }

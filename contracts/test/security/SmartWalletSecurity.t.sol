@@ -39,7 +39,7 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
     address internal recipient;
 
     bytes32 internal constant EXECUTE_TYPEHASH =
-        keccak256("ExecuteTransaction(address target,uint256 value,bytes data,uint256 nonce,uint256 deadline)");
+        keccak256("ExecuteTransaction(address target,uint256 value,bytes data,uint256 space,uint256 nonce,uint256 deadline)");
 
     function setUp() public {
         ownerPrivateKey = 0xABCD1234;
@@ -60,6 +60,7 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
         address _target,
         uint256 _value,
         bytes memory _data,
+        uint256 _space,
         uint256 _nonce,
         uint256 _deadline,
         uint256 _chainId,
@@ -71,6 +72,7 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
                 _target,
                 _value,
                 keccak256(_data),
+                _space,
                 _nonce,
                 _deadline
             )
@@ -96,13 +98,15 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
     /* -------------------------------------------------------------------------- */
 
     function test_Security_ReplayAttack_SameSignatureFailsSecondTime() public {
-        uint256 nonce = wallet.getNonce();
+        uint256 space = 0;
+        uint256 nonce = wallet.getNonce(space);
         uint256 deadline = block.timestamp + 1 hours;
         bytes memory signature = _sign(
             address(wallet),
             recipient,
             1 ether,
             "",
+            space,
             nonce,
             deadline,
             block.chainid,
@@ -110,17 +114,18 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
         );
 
         // First execution succeeds
-        wallet.executeSigned(recipient, 1 ether, "", nonce, deadline, signature);
+        wallet.executeSigned(recipient, 1 ether, "", space, nonce, deadline, signature);
         assertEq(recipient.balance, 1 ether);
-        assertEq(wallet.getNonce(), 1);
+        assertEq(wallet.getNonce(space), 1);
 
         // Attacker attempts to replay same signature payload
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(InvalidNonce.selector, 1, nonce));
-        wallet.executeSigned(recipient, 1 ether, "", nonce, deadline, signature);
+        wallet.executeSigned(recipient, 1 ether, "", space, nonce, deadline, signature);
     }
 
     function test_Security_CrossWalletReplay_FailsAcrossWallets() public {
+        uint256 space = 0;
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
 
@@ -130,6 +135,7 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
             recipient,
             1 ether,
             "",
+            space,
             nonce,
             deadline,
             block.chainid,
@@ -139,10 +145,11 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
         // Attacker submits signature to wallet 2 (which has same owner)
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(InvalidSignature.selector));
-        secondWallet.executeSigned(recipient, 1 ether, "", nonce, deadline, signatureForWallet1);
+        secondWallet.executeSigned(recipient, 1 ether, "", space, nonce, deadline, signatureForWallet1);
     }
 
     function test_Security_CrossChainReplay_FailsOnForkOrOtherChain() public {
+        uint256 space = 0;
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
         uint256 originalChainId = block.chainid;
@@ -152,6 +159,7 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
             recipient,
             1 ether,
             "",
+            space,
             nonce,
             deadline,
             originalChainId,
@@ -163,7 +171,7 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
 
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(InvalidSignature.selector));
-        wallet.executeSigned(recipient, 1 ether, "", nonce, deadline, signatureOriginalChain);
+        wallet.executeSigned(recipient, 1 ether, "", space, nonce, deadline, signatureOriginalChain);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -171,7 +179,8 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
     /* -------------------------------------------------------------------------- */
 
     function test_Security_Tampering_TargetAddressFails() public {
-        uint256 nonce = wallet.getNonce();
+        uint256 space = 0;
+        uint256 nonce = wallet.getNonce(space);
         uint256 deadline = block.timestamp + 1 hours;
 
         bytes memory signature = _sign(
@@ -179,6 +188,7 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
             recipient,
             1 ether,
             "",
+            space,
             nonce,
             deadline,
             block.chainid,
@@ -188,11 +198,12 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
         address tamperedTarget = makeAddr("tamperedTarget");
 
         vm.expectRevert(abi.encodeWithSelector(InvalidSignature.selector));
-        wallet.executeSigned(tamperedTarget, 1 ether, "", nonce, deadline, signature);
+        wallet.executeSigned(tamperedTarget, 1 ether, "", space, nonce, deadline, signature);
     }
 
     function test_Security_Tampering_ValueFails() public {
-        uint256 nonce = wallet.getNonce();
+        uint256 space = 0;
+        uint256 nonce = wallet.getNonce(space);
         uint256 deadline = block.timestamp + 1 hours;
 
         bytes memory signature = _sign(
@@ -200,6 +211,7 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
             recipient,
             1 ether,
             "",
+            space,
             nonce,
             deadline,
             block.chainid,
@@ -209,11 +221,12 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
         uint256 tamperedValue = 5 ether;
 
         vm.expectRevert(abi.encodeWithSelector(InvalidSignature.selector));
-        wallet.executeSigned(recipient, tamperedValue, "", nonce, deadline, signature);
+        wallet.executeSigned(recipient, tamperedValue, "", space, nonce, deadline, signature);
     }
 
     function test_Security_Tampering_CalldataFails() public {
-        uint256 nonce = wallet.getNonce();
+        uint256 space = 0;
+        uint256 nonce = wallet.getNonce(space);
         uint256 deadline = block.timestamp + 1 hours;
 
         bytes memory signature = _sign(
@@ -221,6 +234,7 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
             recipient,
             0,
             hex"1122",
+            space,
             nonce,
             deadline,
             block.chainid,
@@ -230,7 +244,30 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
         bytes memory tamperedData = hex"3344";
 
         vm.expectRevert(abi.encodeWithSelector(InvalidSignature.selector));
-        wallet.executeSigned(recipient, 0, tamperedData, nonce, deadline, signature);
+        wallet.executeSigned(recipient, 0, tamperedData, space, nonce, deadline, signature);
+    }
+
+    function test_Security_Tampering_NonceSpaceFails() public {
+        uint256 space = 0;
+        uint256 nonce = wallet.getNonce(space);
+        uint256 deadline = block.timestamp + 1 hours;
+
+        bytes memory signature = _sign(
+            address(wallet),
+            recipient,
+            1 ether,
+            "",
+            space,
+            nonce,
+            deadline,
+            block.chainid,
+            ownerPrivateKey
+        );
+
+        uint256 tamperedSpace = 1;
+
+        vm.expectRevert(abi.encodeWithSelector(InvalidSignature.selector));
+        wallet.executeSigned(recipient, 1 ether, "", tamperedSpace, nonce, deadline, signature);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -247,7 +284,8 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
 
     function test_Security_Reentrancy_BlockedOnSignedExecute() public {
         ReentrancyMaliciousTarget malicious = new ReentrancyMaliciousTarget(address(wallet));
-        uint256 nonce = wallet.getNonce();
+        uint256 space = 0;
+        uint256 nonce = wallet.getNonce(space);
         uint256 deadline = block.timestamp + 1 hours;
 
         bytes memory signature = _sign(
@@ -255,6 +293,7 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
             address(malicious),
             1 ether,
             "",
+            space,
             nonce,
             deadline,
             block.chainid,
@@ -262,6 +301,165 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
         );
 
         vm.expectRevert();
-        wallet.executeSigned(address(malicious), 1 ether, "", nonce, deadline, signature);
+        wallet.executeSigned(address(malicious), 1 ether, "", space, nonce, deadline, signature);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                         4. AUTHORIZATION POLICIES                          */
+    /* -------------------------------------------------------------------------- */
+
+    function test_Security_Auth_OnlyOwnerCanSetConfiguration() public {
+        vm.prank(attacker);
+        vm.expectRevert(abi.encodeWithSelector(UnauthorizedCaller.selector, attacker));
+        wallet.setEmergencyLock(true);
+
+        vm.prank(attacker);
+        vm.expectRevert(abi.encodeWithSelector(UnauthorizedCaller.selector, attacker));
+        wallet.setAllowlistEnabled(true);
+
+        vm.prank(attacker);
+        vm.expectRevert(abi.encodeWithSelector(UnauthorizedCaller.selector, attacker));
+        wallet.setContractAllowlist(recipient, true);
+
+        vm.prank(attacker);
+        vm.expectRevert(abi.encodeWithSelector(UnauthorizedCaller.selector, attacker));
+        wallet.setDailyEthLimit(1 ether);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                         5. SPENDING LIMITS                                 */
+    /* -------------------------------------------------------------------------- */
+
+    function test_Security_Limits_DailyLimitEnforced() public {
+        vm.prank(ownerAddress);
+        wallet.setDailyEthLimit(1 ether);
+
+        // Try to spend more than limit
+        vm.prank(ownerAddress);
+        vm.expectRevert(abi.encodeWithSelector(ExceedsDailyLimit.selector, 2 ether, 1 ether));
+        wallet.execute(recipient, 2 ether, "");
+
+        // Spend exact limit
+        vm.prank(ownerAddress);
+        wallet.execute(recipient, 1 ether, "");
+
+        // Try to spend more
+        vm.prank(ownerAddress);
+        vm.expectRevert(abi.encodeWithSelector(ExceedsDailyLimit.selector, 0.1 ether, 0));
+        wallet.execute(recipient, 0.1 ether, "");
+
+        // Advance time to next day
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Should be able to spend again
+        vm.prank(ownerAddress);
+        wallet.execute(recipient, 1 ether, "");
+    }
+
+    function test_Security_Limits_BypassFails() public {
+        vm.prank(ownerAddress);
+        wallet.setDailyEthLimit(1 ether);
+
+        uint256 space = 0;
+        uint256 nonce = wallet.getNonce(space);
+        uint256 deadline = block.timestamp + 1 hours;
+
+        bytes memory signature = _sign(
+            address(wallet),
+            recipient,
+            2 ether,
+            "",
+            space,
+            nonce,
+            deadline,
+            block.chainid,
+            ownerPrivateKey
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(ExceedsDailyLimit.selector, 2 ether, 1 ether));
+        wallet.executeSigned(recipient, 2 ether, "", space, nonce, deadline, signature);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                         6. CONTRACT ALLOWLISTS                             */
+    /* -------------------------------------------------------------------------- */
+
+    function test_Security_Allowlist_EnforcedWhenEnabled() public {
+        vm.startPrank(ownerAddress);
+        wallet.setAllowlistEnabled(true);
+        wallet.setContractAllowlist(recipient, true);
+        vm.stopPrank();
+
+        // Execution to allowed contract succeeds
+        vm.prank(ownerAddress);
+        wallet.execute(recipient, 0.1 ether, "");
+
+        // Execution to non-allowed contract fails
+        address nonAllowed = makeAddr("nonAllowed");
+        vm.prank(ownerAddress);
+        vm.expectRevert(abi.encodeWithSelector(TargetNotAllowlisted.selector, nonAllowed));
+        wallet.execute(nonAllowed, 0.1 ether, "");
+    }
+
+    function test_Security_Allowlist_BypassFails() public {
+        vm.startPrank(ownerAddress);
+        wallet.setAllowlistEnabled(true);
+        vm.stopPrank();
+
+        uint256 space = 0;
+        uint256 nonce = wallet.getNonce(space);
+        uint256 deadline = block.timestamp + 1 hours;
+
+        bytes memory signature = _sign(
+            address(wallet),
+            recipient,
+            0.1 ether,
+            "",
+            space,
+            nonce,
+            deadline,
+            block.chainid,
+            ownerPrivateKey
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(TargetNotAllowlisted.selector, recipient));
+        wallet.executeSigned(recipient, 0.1 ether, "", space, nonce, deadline, signature);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                         7. EMERGENCY LOCK                                  */
+    /* -------------------------------------------------------------------------- */
+
+    function test_Security_Lock_EnforcedWhenLocked() public {
+        vm.prank(ownerAddress);
+        wallet.setEmergencyLock(true);
+
+        vm.prank(ownerAddress);
+        vm.expectRevert(abi.encodeWithSelector(WalletLocked.selector));
+        wallet.execute(recipient, 0.1 ether, "");
+    }
+
+    function test_Security_Lock_BypassFails() public {
+        vm.prank(ownerAddress);
+        wallet.setEmergencyLock(true);
+
+        uint256 space = 0;
+        uint256 nonce = wallet.getNonce(space);
+        uint256 deadline = block.timestamp + 1 hours;
+
+        bytes memory signature = _sign(
+            address(wallet),
+            recipient,
+            0.1 ether,
+            "",
+            space,
+            nonce,
+            deadline,
+            block.chainid,
+            ownerPrivateKey
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(WalletLocked.selector));
+        wallet.executeSigned(recipient, 0.1 ether, "", space, nonce, deadline, signature);
     }
 }
