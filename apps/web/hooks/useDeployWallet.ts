@@ -19,9 +19,10 @@ export function useDeployWallet() {
 
   /**
    * Deploys a new SmartWallet for the connected owner.
+   * If salt is undefined, automatically queries the factory for the next available salt.
    */
   const deploy = useCallback(
-    async (salt: bigint = 0n): Promise<Address | null> => {
+    async (explicitSalt?: bigint): Promise<Address | null> => {
       if (!factoryAddress) {
         setError('WalletFactory contract address is not configured for this network');
         return null;
@@ -41,6 +42,17 @@ export function useDeployWallet() {
 
         if (!walletClient) {
           throw new Error('Browser wallet required to sign deployment transaction');
+        }
+
+        let salt = explicitSalt;
+        if (salt === undefined) {
+          const count = (await publicClient.readContract({
+            address: factoryAddress,
+            abi: WalletFactoryABI,
+            functionName: 'getWalletCount',
+            args: [ownerAddress],
+          })) as bigint;
+          salt = count;
         }
 
         // 1. Predict address

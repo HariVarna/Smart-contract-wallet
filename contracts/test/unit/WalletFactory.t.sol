@@ -13,9 +13,11 @@ contract WalletFactoryUnitTest is Test, IWalletErrors {
     address internal owner1;
     address internal owner2;
     address internal randomAddress;
+    address internal dummyEntryPoint;
 
     function setUp() public {
-        factory = new WalletFactory();
+        dummyEntryPoint = makeAddr("entryPoint");
+        factory = new WalletFactory(dummyEntryPoint);
         owner1 = makeAddr("owner1");
         owner2 = makeAddr("owner2");
         randomAddress = makeAddr("randomAddress");

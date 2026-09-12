@@ -41,6 +41,7 @@ export function useActivity() {
 
     setIsLoading(true);
     setError(null);
+    setActivities([]); // Immediately clear history to prevent ghost state during fetch
 
     try {
       const publicClient = getPublicClient(chainId);

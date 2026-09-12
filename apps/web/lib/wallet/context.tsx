@@ -14,6 +14,7 @@ import {
   SUPPORTED_NETWORKS,
 } from '@scw/contracts';
 import { getPublicClient, requestInjectedAccounts } from '../blockchain/clients';
+import { useWalletLabels } from '../../hooks/useWalletLabels';
 
 export interface WalletContextState {
   ownerAddress: Address | null;
@@ -33,6 +34,9 @@ export interface WalletContextState {
   selectSmartWallet: (address: Address) => void;
   switchNetwork: (chainId: number) => void;
   refresh: () => Promise<void>;
+  labels: Record<string, string>;
+  setLabel: (address: Address, label: string) => void;
+  getLabel: (address: Address | null) => string;
 }
 
 const WalletContext = createContext<WalletContextState | null>(null);
@@ -48,6 +52,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [nonce, setNonce] = useState<bigint>(0n);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { labels, setLabel, getLabel } = useWalletLabels();
 
   const factoryAddress = CONTRACT_DEPLOYMENTS[chainId]?.walletFactory || null;
 
@@ -185,7 +191,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   // Switch active smart wallet
   const selectSmartWallet = useCallback((address: Address) => {
+    // Isolate state completely when switching
     setSmartWalletAddress(address);
+    setBalance(0n);
+    setNonce(0n);
+    setIsDeployed(false);
   }, []);
 
   // Switch network
@@ -221,6 +231,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         selectSmartWallet,
         switchNetwork,
         refresh,
+        labels,
+        setLabel,
+        getLabel,
       }}
     >
       {children}

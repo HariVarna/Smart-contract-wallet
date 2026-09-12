@@ -10,11 +10,21 @@ import {SmartWallet} from "../wallet/SmartWallet.sol";
  * @dev Employs CREATE2 for counterfactual deterministic address computation.
  */
 contract WalletFactory is IWalletFactory {
+    /// @dev The trusted EntryPoint contract address.
+    address public immutable entryPoint;
+
     /// @dev Registry tracking whether a smart contract address was deployed by this factory.
     mapping(address => bool) private _isWallet;
 
     /// @dev Registry tracking list of deployed wallet addresses per owner.
     mapping(address => address[]) private _ownerWallets;
+
+    /**
+     * @param _entryPoint The trusted ERC-4337 EntryPoint contract.
+     */
+    constructor(address _entryPoint) {
+        entryPoint = _entryPoint;
+    }
 
     /**
      * @inheritdoc IWalletFactory
@@ -48,7 +58,7 @@ contract WalletFactory is IWalletFactory {
         bytes32 rawSalt = keccak256(abi.encode(owner, salt));
         bytes memory creationCode = abi.encodePacked(
             type(SmartWallet).creationCode,
-            abi.encode(owner)
+            abi.encode(owner, entryPoint)
         );
 
         bytes32 hash = keccak256(
@@ -78,7 +88,7 @@ contract WalletFactory is IWalletFactory {
             revert WalletAlreadyExists(walletAddress);
         }
 
-        SmartWallet newWallet = new SmartWallet{salt: rawSalt}(owner);
+        SmartWallet newWallet = new SmartWallet{salt: rawSalt}(owner, entryPoint);
         walletAddress = address(newWallet);
 
         _isWallet[walletAddress] = true;
