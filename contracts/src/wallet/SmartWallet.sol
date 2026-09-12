@@ -6,13 +6,14 @@ import {NonceManager} from "../authorization/NonceManager.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {GuardianRecovery} from "../recovery/GuardianRecovery.sol";
 
 /**
  * @title SmartWallet
  * @notice Production-oriented, non-custodial Smart Contract Wallet account.
  * @dev Enforces direct owner authorization and EIP-712 signed execution with replay protection.
  */
-contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard {
+contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard, GuardianRecovery {
     /// @dev EIP-712 typehash for transaction execution signatures.
     bytes32 public constant EXECUTE_TYPEHASH =
         keccak256("ExecuteTransaction(address target,uint256 value,bytes data,uint256 space,uint256 nonce,uint256 deadline)");
@@ -21,7 +22,7 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard {
     bytes4 internal constant MAGICVALUE = 0x1626ba7e;
 
     /// @dev Authorized owner/signing authority of the smart wallet.
-    address private immutable _owner;
+    address private _owner;
 
     // --- Security Configuration ---
     bool public isLocked;
@@ -68,6 +69,20 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard {
         if (msg.sender != _owner) {
             revert UnauthorizedCaller(msg.sender);
         }
+    }
+
+    /**
+     * @dev Must be implemented by the inheriting wallet to update ownership.
+     */
+    function _setOwner(address newOwner) internal override {
+        _owner = newOwner;
+    }
+
+    /**
+     * @dev Must be implemented by the inheriting wallet to restrict access to the owner.
+     */
+    function _requireOwner() internal view override {
+        _checkOwner();
     }
 
     /**

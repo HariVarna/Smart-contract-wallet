@@ -142,4 +142,51 @@ interface ISmartWallet is IWalletErrors {
      * @param limit The daily limit in wei.
      */
     function setDailyEthLimit(uint256 limit) external;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 RECOVERY                                   */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Emitted when a guardian is added.
+     */
+    event GuardianAdded(address indexed guardian);
+
+    /**
+     * @notice Emitted when a guardian is removed.
+     */
+    event GuardianRemoved(address indexed guardian);
+
+    /**
+     * @notice Emitted when the recovery threshold is set.
+     */
+    event RecoveryThresholdSet(uint256 threshold);
+
+    /**
+     * @notice Emitted when a recovery process is initiated.
+     */
+    event RecoveryInitiated(address indexed proposedOwner, uint256 executeAfter);
+
+    /**
+     * @notice Emitted when a guardian approves a recovery.
+     */
+    event RecoveryApproved(address indexed guardian, address indexed proposedOwner);
+
+    /**
+     * @notice Emitted when a recovery is executed, transferring ownership.
+     */
+    event RecoveryExecuted(address indexed oldOwner, address indexed newOwner);
+
+    /**
+     * @notice Emitted when a pending recovery is cancelled.
+     */
+    event RecoveryCancelled(address indexed by);
+
+    function addGuardian(address guardian) external;
+    function removeGuardian(address guardian) external;
+    function setRecoveryThreshold(uint256 threshold) external;
+    function initiateRecovery(address newOwner) external;
+    function approveRecovery(address newOwner) external;
+    function executeRecovery() external;
+    function cancelRecovery() external;
 }

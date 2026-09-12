@@ -49,4 +49,26 @@ interface IWalletErrors {
     /// @param requested The amount of ETH requested for transfer.
     /// @param remaining The remaining daily limit available.
     error ExceedsDailyLimit(uint256 requested, uint256 remaining);
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 RECOVERY                                   */
+    /* -------------------------------------------------------------------------- */
+
+    /// @notice Thrown when a caller is not a registered guardian.
+    error InvalidGuardian();
+
+    /// @notice Thrown when a recovery action fails because the threshold is not met.
+    error BelowRecoveryThreshold();
+
+    /// @notice Thrown when attempting to execute a recovery that hasn't passed the timelock.
+    error RecoveryNotReady();
+
+    /// @notice Thrown when attempting an action that requires an active recovery process.
+    error RecoveryNotInProgress();
+
+    /// @notice Thrown when attempting to approve an already approved recovery.
+    error AlreadyApproved();
+
+    /// @notice Thrown when proposing an invalid owner during recovery.
+    error InvalidRecoveryOwner();
 }
