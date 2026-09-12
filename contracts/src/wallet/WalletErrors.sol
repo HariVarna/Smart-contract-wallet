@@ -66,6 +66,9 @@ interface IWalletErrors {
     /// @notice Thrown when attempting an action that requires an active recovery process.
     error RecoveryNotInProgress();
 
+    /// @notice Thrown when attempting to cancel a recovery after the threshold has been met.
+    error CannotCancelAfterThreshold();
+
     /// @notice Thrown when attempting to approve an already approved recovery.
     error AlreadyApproved();
 

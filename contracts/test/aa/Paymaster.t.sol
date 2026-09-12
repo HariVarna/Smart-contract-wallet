@@ -65,8 +65,20 @@ contract PaymasterTest is Test {
         (bytes memory context, uint256 validationData) = paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.5 ether);
 
         assertEq(validationData, 0); // Success
-        address decodedSender = abi.decode(context, (address));
+        (address decodedSender, uint256 decodedMaxCost) = abi.decode(context, (address, uint256));
         assertEq(decodedSender, userOp.sender);
+        assertEq(decodedMaxCost, 0.5 ether);
+    }
+
+    function test_Paymaster_Validate_Fails_InvalidSelector() public {
+        PackedUserOperation memory userOp = _buildUserOp(allowedTarget, 50_000, 50_000, 21_000);
+        
+        // Change the selector in calldata to something else
+        userOp.callData = abi.encodeWithSignature("someOtherFunction(address,uint256,bytes)", allowedTarget, 0, "");
+
+        vm.prank(address(mockEntryPoint));
+        vm.expectRevert(abi.encodeWithSelector(SponsorshipPaymaster.TargetNotAllowed.selector, address(0)));
+        paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.5 ether);
     }
 
     function test_Paymaster_Validate_Fails_UnallowedTarget() public {
@@ -134,5 +146,31 @@ contract PaymasterTest is Test {
         paymaster.postOp(PostOpMode.opSucceeded, context2, 0.5 ether, 0);
 
         assertEq(paymaster.userSpentToday(userOp.sender), 0.5 ether); // Resets and tracks new amount
+    }
+
+    function test_Paymaster_BatchBypass_Blocked() public {
+        PackedUserOperation memory userOp = _buildUserOp(allowedTarget, 50_000, 50_000, 21_000);
+        
+        // Simulating the Validation Loop of EntryPoint for multiple ops from same user
+        
+        // 1st op validation reserves 0.6 ether
+        vm.prank(address(mockEntryPoint));
+        (bytes memory context1, ) = paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.6 ether);
+
+        // 2nd op validation should see the reserved 0.6 ether and fail because 0.6 + 0.6 > 1.0 (daily limit)
+        vm.prank(address(mockEntryPoint));
+        vm.expectRevert(abi.encodeWithSelector(SponsorshipPaymaster.ExceedsDailySponsorshipLimit.selector, 0.6 ether, 0.4 ether));
+        paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.6 ether);
+        
+        // 3rd op validation (say 0.4 ether) should pass
+        vm.prank(address(mockEntryPoint));
+        (bytes memory context3, ) = paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.4 ether);
+
+        // Execute PostOp for 1st op (actual cost 0.5)
+        vm.prank(address(mockEntryPoint));
+        paymaster.postOp(PostOpMode.opSucceeded, context1, 0.5 ether, 0);
+
+        // Now userSpentToday should be: 0.6 (reserved for op1) + 0.4 (reserved for op3) - 0.1 (refund for op1) = 0.9 ether
+        assertEq(paymaster.userSpentToday(userOp.sender), 0.9 ether);
     }
 }

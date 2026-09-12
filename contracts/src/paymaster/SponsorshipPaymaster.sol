@@ -5,6 +5,7 @@ import {BasePaymaster} from "@account-abstraction/contracts/core/BasePaymaster.s
 import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {PostOpMode} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
+import {ISmartWallet} from "../interfaces/ISmartWallet.sol";
 
 /**
  * @title SponsorshipPaymaster
@@ -61,16 +62,20 @@ contract SponsorshipPaymaster is BasePaymaster {
         address sender = userOp.sender;
 
         // 1. Validate Target Contract (from callData)
-        // If the wallet uses executeUserOp(address target, uint256 value, bytes data),
-        // the target is explicitly encoded at bytes 4 to 36. 
-        // We will decode it cautiously.
+        // Ensure the call is executeUserOp before extracting the target from bytes 4 to 36.
         if (userOp.callData.length >= 36) {
+            bytes4 selector = bytes4(userOp.callData[0:4]);
+            if (selector != ISmartWallet.executeUserOp.selector) {
+                // We only sponsor executeUserOp. (executeUserOpBatch and others are not supported).
+                revert TargetNotAllowed(address(0));
+            }
+
             address target = abi.decode(userOp.callData[4:36], (address));
             if (!allowedTargets[target]) {
                 revert TargetNotAllowed(target);
             }
         } else {
-            // Invalid calldata structure for executeUserOp, reject sponsorship
+            // Invalid calldata length, reject sponsorship
             revert TargetNotAllowed(address(0));
         }
 
@@ -87,19 +92,21 @@ contract SponsorshipPaymaster is BasePaymaster {
         }
 
         // 3. Validate Daily Limits
-        if (block.timestamp >= userLastReset[sender] + 1 days) {
-            userSpentToday[sender] = 0; // Will be updated in postOp, but reset logic verified here
-        }
-
         uint256 spentToday = block.timestamp >= userLastReset[sender] + 1 days ? 0 : userSpentToday[sender];
         uint256 remaining = dailyLimitPerUser >= spentToday ? dailyLimitPerUser - spentToday : 0;
 
         if (maxCost > remaining) {
             revert ExceedsDailySponsorshipLimit(maxCost, remaining);
         }
+        
+        // Reserve the maxCost to prevent batch bypasses in the same bundle
+        userSpentToday[sender] = spentToday + maxCost;
+        if (spentToday == 0) {
+            userLastReset[sender] = block.timestamp;
+        }
 
-        // Pass sender to context for accurate postOp accounting
-        context = abi.encode(sender);
+        // Pass sender and maxCost to context for accurate postOp accounting
+        context = abi.encode(sender, maxCost);
         validationData = 0; // Success
     }
 
@@ -117,15 +124,19 @@ contract SponsorshipPaymaster is BasePaymaster {
         uint256 actualGasCost,
         uint256 /* actualUserOpFeePerGas */
     ) internal override {
-        address sender = abi.decode(context, (address));
+        (address sender, uint256 maxCost) = abi.decode(context, (address, uint256));
 
-        // Reset tracking if 24 hours have passed since last reset
-        if (block.timestamp >= userLastReset[sender] + 1 days) {
-            userSpentToday[sender] = 0;
-            userLastReset[sender] = block.timestamp;
+        // We reserved maxCost during validation. Now refund the unused difference.
+        // If for some reason actualGasCost > maxCost, we cap the subtraction.
+        if (maxCost > actualGasCost) {
+            uint256 refund = maxCost - actualGasCost;
+            if (userSpentToday[sender] >= refund) {
+                userSpentToday[sender] -= refund;
+            }
+        } else if (actualGasCost > maxCost) {
+            // Unlikely due to 4337 rules, but safely track if it exceeds
+            userSpentToday[sender] += (actualGasCost - maxCost);
         }
-
-        userSpentToday[sender] += actualGasCost;
 
         emit GasSponsored(sender, actualGasCost);
     }

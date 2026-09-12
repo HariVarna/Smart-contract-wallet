@@ -401,6 +401,17 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
         wallet.execute(nonAllowed, 0.1 ether, "");
     }
 
+    function test_Security_Allowlist_SelfCallBypassesLockout() public {
+        vm.startPrank(ownerAddress);
+        wallet.setAllowlistEnabled(true);
+        
+        // Even though wallet is NOT in the allowlist, self-calls (like disabling it) should succeed
+        wallet.setAllowlistEnabled(false);
+        vm.stopPrank();
+        
+        assertEq(wallet.allowlistEnabled(), false);
+    }
+
     function test_Security_Allowlist_BypassFails() public {
         vm.startPrank(ownerAddress);
         wallet.setAllowlistEnabled(true);

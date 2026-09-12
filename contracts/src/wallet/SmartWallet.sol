@@ -111,7 +111,7 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard, Gua
         if (isLocked) {
             revert WalletLocked();
         }
-        if (allowlistEnabled && !isAllowedContract[target]) {
+        if (allowlistEnabled && target != address(this) && !isAllowedContract[target]) {
             revert TargetNotAllowlisted(target);
         }
         
@@ -200,10 +200,6 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard, Gua
             revert ExpiredSignature(deadline, block.timestamp);
         }
 
-        _verifyAndUseNonce(space, nonce);
-        
-        _validatePolicy(target, value);
-
         bytes32 structHash = keccak256(
             abi.encode(
                 EXECUTE_TYPEHASH,
@@ -222,6 +218,10 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard, Gua
         if (err != ECDSA.RecoverError.NoError || recoveredSigner != _owner || recoveredSigner == address(0)) {
             revert InvalidSignature();
         }
+
+        _verifyAndUseNonce(space, nonce);
+        
+        _validatePolicy(target, value);
 
         if (address(this).balance < value) {
             revert InsufficientBalance(address(this).balance, value);

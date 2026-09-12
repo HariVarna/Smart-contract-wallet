@@ -169,6 +169,7 @@ abstract contract GuardianRecovery is IWalletErrors {
     function cancelRecovery() external {
         _requireOwner();
         if (recoveryProposedOwner == address(0)) revert RecoveryNotInProgress();
+        if (recoveryExecuteAfter != 0) revert CannotCancelAfterThreshold();
 
         // Reset state by incrementing round (invalidates current approvals) and clearing proposed owner
         currentRecoveryRound++;

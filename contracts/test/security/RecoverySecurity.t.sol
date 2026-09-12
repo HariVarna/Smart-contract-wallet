@@ -178,20 +178,29 @@ contract RecoverySecurityTest is Test, IWalletErrors {
         wallet.approveRecovery(newOwner);
     }
 
-    function test_Recovery_Cancel_PreventsExecution() public {
+    function test_Recovery_Cancel_SucceedsBeforeThreshold() public {
         vm.prank(guardianA);
         wallet.initiateRecovery(newOwner);
 
-        vm.prank(guardianB);
-        wallet.approveRecovery(newOwner); // Threshold met
-
+        // Threshold is 2. Currently only 1 approval.
         vm.prank(ownerAddress);
-        wallet.cancelRecovery(); // Owner cancels
-
-        vm.warp(block.timestamp + 48 hours);
+        wallet.cancelRecovery(); // Owner cancels successfully before threshold
 
         // Attempting execution fails because state is reset
         vm.expectRevert(abi.encodeWithSelector(RecoveryNotReady.selector));
         wallet.executeRecovery();
+    }
+
+    function test_Recovery_Cancel_RevertsAfterThreshold() public {
+        vm.prank(guardianA);
+        wallet.initiateRecovery(newOwner);
+
+        vm.prank(guardianB);
+        wallet.approveRecovery(newOwner); // Threshold met (2/2)
+
+        // Owner attempts to cancel after threshold is met, simulating compromised key scenario
+        vm.prank(ownerAddress);
+        vm.expectRevert(abi.encodeWithSelector(CannotCancelAfterThreshold.selector));
+        wallet.cancelRecovery();
     }
 }
