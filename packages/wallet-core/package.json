@@ -1,15 +1,17 @@
 {
   "name": "@scw/wallet-core",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
-  "description": "Framework-agnostic wallet client logic and transaction orchestrators",
+  "description": "Framework-agnostic wallet client logic, validation engines, and transaction orchestrators",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
+    "test": "node --experimental-strip-types --test test/formatting.test.ts test/validation.test.ts test/encoding.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "viem": "^2.23.10"
+    "viem": "^2.56.3"
   },
   "devDependencies": {
     "typescript": "^5.8.2"

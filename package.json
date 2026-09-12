@@ -10,6 +10,8 @@
     "contracts:test": "cd contracts && forge test",
     "contracts:clean": "cd contracts && forge clean",
     "contracts:format": "cd contracts && forge fmt",
+    "test:core": "cd packages/wallet-core && npm run test",
+    "test": "npm run contracts:test && npm run test:core",
     "anvil": "powershell -ExecutionPolicy Bypass -File ./scripts/anvil.ps1",
     "typecheck": "cd apps/web && npx tsc --noEmit",
     "format": "npx prettier --write \"**/*.{ts,tsx,js,jsx,json,md,sol}\""

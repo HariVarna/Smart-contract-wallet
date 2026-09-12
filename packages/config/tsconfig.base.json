@@ -12,6 +12,7 @@
     "noImplicitOverride": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "declaration": true,
     "declarationMap": true,

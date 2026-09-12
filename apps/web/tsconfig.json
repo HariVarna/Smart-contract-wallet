@@ -5,6 +5,7 @@
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "allowJs": true,
     "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
@@ -24,7 +25,9 @@
       "@/*": ["./*"],
       "@scw/types": ["../../packages/types/src/index.ts"],
       "@scw/contracts": ["../../packages/contracts/src/index.ts"],
-      "@scw/wallet-core": ["../../packages/wallet-core/src/index.ts"]
+      "@scw/wallet-core": ["../../packages/wallet-core/src/index.ts"],
+      "viem": ["./node_modules/viem"],
+      "viem/*": ["./node_modules/viem/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
