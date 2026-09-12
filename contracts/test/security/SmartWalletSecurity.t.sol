@@ -48,8 +48,8 @@ contract SmartWalletSecurityTest is Test, IWalletErrors {
         attacker = makeAddr("attacker");
         recipient = makeAddr("recipient");
 
-        wallet = new SmartWallet(ownerAddress);
-        secondWallet = new SmartWallet(ownerAddress);
+        wallet = new SmartWallet(ownerAddress, address(0x999));
+        secondWallet = new SmartWallet(ownerAddress, address(0x999));
 
         vm.deal(address(wallet), 10 ether);
         vm.deal(address(secondWallet), 10 ether);

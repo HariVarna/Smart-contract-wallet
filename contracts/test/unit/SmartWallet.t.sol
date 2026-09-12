@@ -71,7 +71,7 @@ contract SmartWalletUnitTest is Test, IWalletErrors {
         unauthorizedUser = makeAddr("unauthorizedUser");
         recipient = makeAddr("recipient");
 
-        wallet = new SmartWallet(ownerAddress);
+        wallet = new SmartWallet(ownerAddress, address(0x999));
         target = new MockTarget();
 
         // Fund wallet with 10 ETH
@@ -90,7 +90,7 @@ contract SmartWalletUnitTest is Test, IWalletErrors {
 
     function test_Deployment_RevertOnZeroAddressOwner() public {
         vm.expectRevert(abi.encodeWithSelector(InvalidOwner.selector));
-        new SmartWallet(address(0));
+        new SmartWallet(address(0), address(0x999));
     }
 
     /* -------------------------------------------------------------------------- */

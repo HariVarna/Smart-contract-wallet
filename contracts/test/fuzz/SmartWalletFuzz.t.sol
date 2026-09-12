@@ -34,7 +34,7 @@ contract SmartWalletFuzzTest is Test, IWalletErrors {
         ownerPrivateKey = 0xCAFE1234;
         ownerAddress = vm.addr(ownerPrivateKey);
 
-        wallet = new SmartWallet(ownerAddress);
+        wallet = new SmartWallet(ownerAddress, address(0x999));
         receiver = new FuzzReceiver();
 
         vm.deal(address(wallet), 1000 ether);

@@ -30,7 +30,7 @@ contract RecoverySecurityTest is Test, IWalletErrors {
         attacker = makeAddr("attacker");
         newOwner = makeAddr("newOwner");
 
-        wallet = new SmartWallet(ownerAddress);
+        wallet = new SmartWallet(ownerAddress, address(0x999));
 
         // Add 3 guardians and set threshold to 2
         vm.startPrank(ownerAddress);

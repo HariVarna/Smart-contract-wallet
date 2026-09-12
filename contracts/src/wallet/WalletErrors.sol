@@ -71,4 +71,11 @@ interface IWalletErrors {
 
     /// @notice Thrown when proposing an invalid owner during recovery.
     error InvalidRecoveryOwner();
+
+    /* -------------------------------------------------------------------------- */
+    /*                             ACCOUNT ABSTRACTION                            */
+    /* -------------------------------------------------------------------------- */
+
+    /// @notice Thrown when a caller other than the designated EntryPoint attempts an ERC-4337 restricted operation.
+    error NotEntryPoint();
 }

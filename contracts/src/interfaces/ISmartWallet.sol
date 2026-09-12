@@ -189,4 +189,39 @@ interface ISmartWallet is IWalletErrors {
     function approveRecovery(address newOwner) external;
     function executeRecovery() external;
     function cancelRecovery() external;
+
+    /* -------------------------------------------------------------------------- */
+    /*                             ACCOUNT ABSTRACTION                            */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Returns the designated trusted ERC-4337 EntryPoint contract.
+     */
+    function entryPoint() external view returns (address);
+
+    /**
+     * @notice Executes a single transaction on behalf of the EntryPoint.
+     * @param target Destination contract or recipient address.
+     * @param value Amount of native ETH in wei to transfer.
+     * @param data Calldata payload to execute on the destination.
+     * @return returnData Raw bytes returned by the target call.
+     */
+    function executeUserOp(
+        address target,
+        uint256 value,
+        bytes calldata data
+    ) external payable returns (bytes memory returnData);
+
+    /**
+     * @notice Executes a batch of transactions on behalf of the EntryPoint.
+     * @param targets Array of destination addresses.
+     * @param values Array of native ETH amounts.
+     * @param datas Array of calldata payloads.
+     * @return returnDatas Array of raw bytes returned by the target calls.
+     */
+    function executeUserOpBatch(
+        address[] calldata targets,
+        uint256[] calldata values,
+        bytes[] calldata datas
+    ) external payable returns (bytes[] memory returnDatas);
 }

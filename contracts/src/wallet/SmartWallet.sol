@@ -7,13 +7,15 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {GuardianRecovery} from "../recovery/GuardianRecovery.sol";
+import {IAccount} from "@account-abstraction/contracts/interfaces/IAccount.sol";
+import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 
 /**
  * @title SmartWallet
  * @notice Production-oriented, non-custodial Smart Contract Wallet account.
  * @dev Enforces direct owner authorization and EIP-712 signed execution with replay protection.
  */
-contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard, GuardianRecovery {
+contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard, GuardianRecovery, IAccount {
     /// @dev EIP-712 typehash for transaction execution signatures.
     bytes32 public constant EXECUTE_TYPEHASH =
         keccak256("ExecuteTransaction(address target,uint256 value,bytes data,uint256 space,uint256 nonce,uint256 deadline)");
@@ -23,6 +25,9 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard, Gua
 
     /// @dev Authorized owner/signing authority of the smart wallet.
     address private _owner;
+
+    /// @dev ERC-4337 trusted EntryPoint
+    address public immutable override entryPoint;
 
     // --- Security Configuration ---
     bool public isLocked;
@@ -34,14 +39,16 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard, Gua
     uint256 public lastDayReset;
 
     /**
-     * @notice Initializes the smart contract wallet with an authorized owner.
+     * @notice Initializes the smart contract wallet with an authorized owner and an EntryPoint.
      * @param initialOwner The initial authorized signing key / owner.
+     * @param _entryPoint The trusted ERC-4337 EntryPoint contract.
      */
-    constructor(address initialOwner) EIP712("SmartContractWallet", "1") {
-        if (initialOwner == address(0)) {
+    constructor(address initialOwner, address _entryPoint) EIP712("SmartContractWallet", "1") {
+        if (initialOwner == address(0) || _entryPoint == address(0)) {
             revert InvalidOwner();
         }
         _owner = initialOwner;
+        entryPoint = _entryPoint;
     }
 
     /**
@@ -49,6 +56,16 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard, Gua
      */
     modifier onlyOwner() {
         _checkOwner();
+        _;
+    }
+
+    /**
+     * @dev Restricts invocation to the trusted EntryPoint.
+     */
+    modifier onlyEntryPoint() {
+        if (msg.sender != entryPoint) {
+            revert NotEntryPoint();
+        }
         _;
     }
 
@@ -215,6 +232,81 @@ contract SmartWallet is ISmartWallet, NonceManager, EIP712, ReentrancyGuard, Gua
         }
 
         emit TransactionExecuted(target, value, data, nonce, returnData);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                             ACCOUNT ABSTRACTION                            */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @inheritdoc IAccount
+     */
+    function validateUserOp(
+        PackedUserOperation calldata userOp,
+        bytes32 userOpHash,
+        uint256 missingAccountFunds
+    ) external override onlyEntryPoint returns (uint256 validationData) {
+        (address recoveredSigner, ECDSA.RecoverError err, ) = ECDSA.tryRecover(userOpHash, userOp.signature);
+        
+        if (err != ECDSA.RecoverError.NoError || recoveredSigner != _owner || recoveredSigner == address(0)) {
+            return 1; // SIG_VALIDATION_FAILED
+        }
+        
+        if (missingAccountFunds > 0) {
+            (bool success, ) = msg.sender.call{value: missingAccountFunds}("");
+            require(success, "Prefund failed");
+        }
+        
+        return 0; // Success
+    }
+
+    /**
+     * @inheritdoc ISmartWallet
+     */
+    function executeUserOp(
+        address target,
+        uint256 value,
+        bytes calldata data
+    ) external payable override onlyEntryPoint returns (bytes memory returnData) {
+        if (target == address(0)) revert ZeroAddress();
+        
+        _validatePolicy(target, value);
+        if (address(this).balance < value) revert InsufficientBalance(address(this).balance, value);
+
+        bool success;
+        (success, returnData) = target.call{value: value}(data);
+        if (!success) revert CallExecutionFailed(returnData);
+
+        emit TransactionExecuted(target, value, data, 0, returnData);
+    }
+
+    /**
+     * @inheritdoc ISmartWallet
+     */
+    function executeUserOpBatch(
+        address[] calldata targets,
+        uint256[] calldata values,
+        bytes[] calldata datas
+    ) external payable override onlyEntryPoint returns (bytes[] memory returnDatas) {
+        require(targets.length == values.length && values.length == datas.length, "Length mismatch");
+        returnDatas = new bytes[](targets.length);
+        
+        for (uint256 i = 0; i < targets.length; i++) {
+            address target = targets[i];
+            uint256 value = values[i];
+            bytes calldata data = datas[i];
+
+            if (target == address(0)) revert ZeroAddress();
+            
+            _validatePolicy(target, value);
+            if (address(this).balance < value) revert InsufficientBalance(address(this).balance, value);
+
+            bool success;
+            (success, returnDatas[i]) = target.call{value: value}(data);
+            if (!success) revert CallExecutionFailed(returnDatas[i]);
+            
+            emit TransactionExecuted(target, value, data, 0, returnDatas[i]);
+        }
     }
 
     /**
